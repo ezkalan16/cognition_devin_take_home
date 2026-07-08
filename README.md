@@ -12,7 +12,18 @@ The issue is expected to contain the **name of the dependency** and the
    `requirements.txt`, `pyproject.toml`, `go.mod`, `Cargo.toml`, etc.).
 2. **Research** any changelog, release notes, and upgrade/migration guides
    relevant between the current version and the new version.
-3. **Perform the upgrade** and open a pull request summarizing the changes.
+3. **Locate every usage** of the dependency in the codebase (imports, calls,
+   config) and record each file/line.
+4. **Produce a categorized impact report** (`DEPENDENCY_UPGRADE_REPORT.md`) that
+   evaluates the researched changes against the actual usages, links each item
+   to where it is used in the codebase, and groups them into four categories:
+   - **Breaking changes** — must be fixed for the upgrade.
+   - **New deprecations** — still work but should be migrated.
+   - **Changes to existing functionality** — behavioral changes to used APIs.
+   - **New functionality that can be used in the codebase** — newly added
+     features relevant to how the codebase uses the dependency.
+5. **Perform the upgrade** and open a pull request that includes the impact
+   report.
 
 > The repository URL and Devin API token are **placeholders** — set them via
 > environment variables (see `.env.example`).
