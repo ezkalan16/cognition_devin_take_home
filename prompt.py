@@ -49,6 +49,11 @@ def build_upgrade_prompt(
          categorized impact report (breaking changes, new deprecations, changes
          to existing functionality, new functionality) linking to each usage.
       5. Perform the upgrade and open a PR that includes the report.
+      6. For each deprecation, open a PR replacing the deprecated usage, or —
+         if that is not possible — open a GitHub issue describing the upgrade,
+         impacted areas, and the deprecated functionality.
+      7. For changes to existing functionality, assess behavioral impact on the
+         codebase and, if any, generate a report for human review.
     """
     target = target_version.strip() or "the latest version"
 
@@ -103,6 +108,34 @@ def build_upgrade_prompt(
         "(the four categories with codebase links) in the PR description, along "
         "with the current version, the target version, and the migration steps "
         "you applied.",
+        "",
+        "7. Handle the deprecations from the \"New deprecations\" category. For "
+        "each deprecated piece of functionality the codebase uses:",
+        "",
+        "   - If it is possible to migrate off it, open a SEPARATE pull request "
+        "that replaces the usage of the deprecated functionality with the "
+        "recommended non-deprecated alternative.",
+        "   - If replacing it is NOT possible (e.g. no drop-in replacement "
+        "exists, or the migration is too large/risky to do automatically), open "
+        f"a GitHub issue in {repo_url} instead. The issue MUST describe: the "
+        f"dependency upgrade (`{dependency}` from the current version to "
+        f"`{target}`), the area(s) of the codebase that are impacted (with links "
+        "to the usage sites), and the specific deprecated functionality that "
+        "needs to be addressed.",
+        "",
+        "   If there are no deprecations, skip this step.",
+        "",
+        "8. Assess the \"Changes to existing functionality\" category for "
+        "behavioral impact. For each such change, determine whether it would "
+        "actually affect the behavior of THIS codebase given how it uses the "
+        "affected functionality (consider the arguments passed, the return "
+        "values relied on, and the surrounding logic at each usage site). If "
+        "any change would impact the codebase's behavior, generate a "
+        "`BEHAVIORAL_IMPACT_REPORT.md` for HUMAN REVIEW that, for each impacted "
+        "usage, describes the behavioral change, links to the affected code "
+        f"({repo_url}/blob/<commit-sha>/<path>#L<line>), and explains the likely "
+        "effect on the codebase. If no change has any behavioral impact, state "
+        "that explicitly instead of creating the report.",
     ]
 
     if issue_number is not None or issue_url:
