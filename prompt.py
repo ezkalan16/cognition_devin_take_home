@@ -54,6 +54,8 @@ def build_upgrade_prompt(
          impacted areas, and the deprecated functionality.
       7. For changes to existing functionality, assess behavioral impact on the
          codebase and, if any, generate a report for human review.
+      8. For new functionality, open a GitHub issue describing the upgrade, the
+         new functionality, and where it could improve the codebase.
     """
     target = target_version.strip() or "the latest version"
 
@@ -136,6 +138,15 @@ def build_upgrade_prompt(
         f"({repo_url}/blob/<commit-sha>/<path>#L<line>), and explains the likely "
         "effect on the codebase. If no change has any behavioral impact, state "
         "that explicitly instead of creating the report.",
+        "",
+        "9. Handle the \"New functionality that can be used in the codebase\" "
+        f"category. If there is new functionality in `{dependency}` that could "
+        f"improve the codebase, open a GitHub issue in {repo_url} that "
+        f"describes: the dependency upgrade (`{dependency}` from the current "
+        f"version to `{target}`), the new functionality that is now available, "
+        "and where in the codebase (with links to the relevant code) the new "
+        "functionality could be used to improve the code. If there is no "
+        "applicable new functionality, skip this step.",
     ]
 
     if issue_number is not None or issue_url:

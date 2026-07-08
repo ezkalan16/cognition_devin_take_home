@@ -33,6 +33,9 @@ The issue is expected to contain the **name of the dependency** and the
    evaluate whether it affects the codebase's behavior given how it uses that
    functionality; if there is any impact, generate a `BEHAVIORAL_IMPACT_REPORT.md`
    highlighting it for human review.
+8. **Surface usable new functionality**: if new functionality could improve the
+   codebase, open a **GitHub issue** describing the upgrade, the new
+   functionality available, and where in the codebase it could be used.
 
 > The repository URL and Devin API token are **placeholders** — set them via
 > environment variables (see `.env.example`).

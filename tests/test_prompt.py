@@ -77,3 +77,15 @@ def test_prompt_assesses_behavioral_impact_for_existing_functionality_changes():
     assert "behavior" in prompt.lower()
     assert "BEHAVIORAL_IMPACT_REPORT.md" in prompt
     assert "human review" in prompt.lower()
+
+
+def test_prompt_opens_issue_for_usable_new_functionality():
+    prompt = build_upgrade_prompt(
+        repo_url="https://github.com/your-org/your-repo",
+        dependency="requests",
+        target_version="2.32.0",
+    )
+    step = prompt[prompt.index("9. Handle"):]
+    assert "new functionality that is now available" in step.lower()
+    assert "GitHub issue" in step
+    assert "improve the code" in step.lower()
