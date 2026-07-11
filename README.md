@@ -58,6 +58,7 @@ POST /webhook  ──►  verify HMAC signature
 | File                    | Purpose                                                        |
 | ----------------------- | -------------------------------------------------------------- |
 | `app.py`                | FastAPI app + `/webhook` handler (signature check, filtering). |
+| `Dockerfile`            | Production container image for the webhook service.             |
 | `config.py`             | Environment-driven configuration (with placeholders).          |
 | `dependency_parser.py`  | Extracts `(name, version)` from the issue title/body.          |
 | `prompt.py`             | Builds the instruction prompt for the Devin session.           |
@@ -88,6 +89,17 @@ Set the required environment variables (or edit `.env`):
 ```bash
 uvicorn app:app --reload --port 8000
 ```
+
+### Docker
+
+Build the image and run it with the same environment variables:
+
+```bash
+docker build -t devin-dependency-upgrade-webhook .
+docker run --rm -p 8000:8000 --env-file .env devin-dependency-upgrade-webhook
+```
+
+The service is available on port `8000`; container health checks use `GET /health`.
 
 ## Configure the GitHub webhook
 
