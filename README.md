@@ -42,16 +42,55 @@ The issue is expected to contain the **name of the dependency** and the
 
 ## How it works
 
+```text
++-----------------------------------+
+| GitHub target repository          |
+|                                   |
+| Issue opened/labeled with:        |
+| dependency_upgrade                |
++-----------------+-----------------+
+                  |
+                  | GitHub "issues" webhook
+                  v
++-----------------------------------+
+| FastAPI service                   |
+|                                   |
+| POST /webhook  <-- entrypoint     |
+|                                   |
+| 1. Verify HMAC signature          |
+| 2. Check event, action, and label |
+| 3. Parse dependency and version   |
+| 4. Build the upgrade prompt       |
++-----------------+-----------------+
+                  |
+                  | POST /v1/sessions
+                  v
++-----------------------------------+
+| Devin session                     |
+|                                   |
+| 1. Clone/read the target repo     |
+| 2. Find current version + usages  |
+| 3. Research release docs          |
+| 4. Categorize upgrade impact      |
+| 5. Update code and run tests      |
++-----------------+-----------------+
+                  |
+                  | Push branches with Git; open PRs/issues
+                  v
++-----------------------------------+
+| GitHub target repository          |
+|                                   |
+| - Upgrade PR + impact report      |
+| - Deprecation PRs or issues       |
+| - Behavioral impact report        |
+| - New-functionality issues        |
++-----------------------------------+
 ```
-GitHub issue (label: dependency_upgrade)
-        │  webhook (event: issues)
-        ▼
-POST /webhook  ──►  verify HMAC signature
-                    check for the trigger label
-                    parse dependency name + target version
-                    build the upgrade prompt
-                    POST /v1/sessions  ──►  Devin
-```
+
+The webhook service does not modify the repository directly. It supplies the target
+repository URL and upgrade instructions to Devin; the resulting Devin session reads
+the repository, performs the upgrade, and uses GitHub to open the relevant pull
+requests and follow-up issues.
 
 ## Files
 
