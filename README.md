@@ -59,11 +59,12 @@ POST /webhook  ──►  verify HMAC signature
 | ----------------------- | -------------------------------------------------------------- |
 | `app.py`                | FastAPI app + `/webhook` handler (signature check, filtering). |
 | `Dockerfile`            | Production container image for the webhook service.             |
+| `package.json`          | Smee relay and end-to-end local webhook test commands.          |
 | `config.py`             | Environment-driven configuration (with placeholders).          |
 | `dependency_parser.py`  | Extracts `(name, version)` from the issue title/body.          |
 | `prompt.py`             | Builds the instruction prompt for the Devin session.           |
 | `devin_client.py`       | Minimal client for `POST /v1/sessions`.                        |
-| `tests/`                | Unit tests for parsing, prompt building, and the webhook.      |
+| `tests/`                | Unit tests plus the Smee end-to-end webhook test.              |
 
 ## Setup
 
@@ -83,11 +84,12 @@ Set the required environment variables (or edit `.env`):
 | `DEVIN_API_BASE_URL`    | no       | Defaults to `https://api.devin.ai`.                           |
 | `TRIGGER_LABEL`         | no       | Defaults to `dependency_upgrade`.                             |
 | `DEVIN_MAX_ACU_LIMIT`   | no       | Optional ACU cap for triggered sessions.                      |
+| `SMEE_URL`              | local testing | Smee channel that relays GitHub webhooks to localhost.     |
 
 ## Run
 
 ```bash
-uvicorn app:app --reload --port 8000
+uvicorn app:app --reload --port 8000 --env-file .env
 ```
 
 ### Docker
@@ -100,6 +102,32 @@ docker run --rm -p 8000:8000 --env-file .env devin-dependency-upgrade-webhook
 ```
 
 The service is available on port `8000`; container health checks use `GET /health`.
+
+### Test GitHub webhooks locally with Smee
+
+With Node.js 20.18.1 or newer, create a channel at
+[smee.io](https://smee.io/new), set its URL as `SMEE_URL` in `.env`, and use that
+same URL as the GitHub webhook **Payload URL**. Then install and start the Smee
+client alongside the local app:
+
+```bash
+npm install
+npm run smee
+```
+
+The relay forwards channel events to `http://127.0.0.1:8000/webhook` by default.
+Set `SMEE_TARGET_URL` to override the local target.
+
+To test the complete relay without creating a real Devin session, stop any manual
+relay using the same channel and run:
+
+```bash
+npm run test:smee
+```
+
+The test starts the FastAPI app and a mock Devin API, posts a signed GitHub issue
+event to `SMEE_URL`, and verifies that Smee forwards it through the app into the
+expected outbound Devin session request.
 
 ## Configure the GitHub webhook
 
