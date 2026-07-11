@@ -1,0 +1,15 @@
+{
+  "name": "devin-dependency-upgrade-webhook-local-tools",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20.18.1"
+  },
+  "scripts": {
+    "smee": "node --env-file=.env scripts/smee.mjs",
+    "test:smee": "node --env-file=.env tests/e2e/smee-webhook.mjs"
+  },
+  "devDependencies": {
+    "smee-client": "5.0.0"
+  }
+}
