@@ -26,10 +26,21 @@ from dependency_parser import parse_dependency
 from devin_client import DevinClient
 from prompt import build_upgrade_prompt
 
-logging.basicConfig(level=logging.INFO)
+_log_level = logging.getLevelNamesMapping().get(config.LOG_LEVEL, logging.INFO)
+logging.basicConfig(level=_log_level)
 logger = logging.getLogger("dependency-upgrade-webhook")
+logger.setLevel(_log_level)
 
 app = FastAPI(title="Devin Dependency-Upgrade Webhook")
+logger.debug(
+    "Application configured target_repo=%s trigger_label=%s devin_api_base_url=%s "
+    "max_acu_limit=%s signature_verification=%s",
+    config.TARGET_REPO_URL,
+    config.TRIGGER_LABEL,
+    config.DEVIN_API_BASE_URL,
+    config.DEVIN_MAX_ACU_LIMIT,
+    bool(config.GITHUB_WEBHOOK_SECRET),
+)
 
 
 def _verify_signature(secret: str, body: bytes, signature_header: str | None) -> bool:
@@ -68,32 +79,63 @@ async def github_webhook(
     x_hub_signature_256: str | None = Header(default=None),
 ) -> dict:
     raw_body = await request.body()
+    logger.debug(
+        "Received webhook event=%r body_bytes=%d signature_required=%s signature_present=%s",
+        x_github_event,
+        len(raw_body),
+        bool(config.GITHUB_WEBHOOK_SECRET),
+        bool(x_hub_signature_256),
+    )
 
     if not _verify_signature(config.GITHUB_WEBHOOK_SECRET, raw_body, x_hub_signature_256):
+        logger.warning("Rejected webhook event=%r: invalid signature", x_github_event)
         raise HTTPException(status_code=401, detail="Invalid webhook signature")
 
     if x_github_event == "ping":
+        logger.debug("Responding to GitHub ping event")
         return {"status": "pong"}
 
     if x_github_event != "issues":
+        logger.debug("Ignoring unsupported webhook event=%r", x_github_event)
         return {"status": "ignored", "reason": f"event '{x_github_event}' is not an issue event"}
 
     payload = await request.json()
     action = payload.get("action")
+    logger.debug("Processing issue webhook action=%r", action)
     # React when an issue is opened, reopened, or the label is added.
     if action not in {"opened", "reopened", "labeled", "edited"}:
+        logger.debug("Ignoring issue webhook action=%r: unsupported action", action)
         return {"status": "ignored", "reason": f"action '{action}' not handled"}
 
     issue = payload.get("issue") or {}
+    issue_number = issue.get("number")
     if not _has_trigger_label(issue, config.TRIGGER_LABEL):
+        logger.debug(
+            "Ignoring issue webhook issue_number=%s action=%s: missing trigger_label=%s",
+            issue_number,
+            action,
+            config.TRIGGER_LABEL,
+        )
         return {"status": "ignored", "reason": f"missing '{config.TRIGGER_LABEL}' label"}
+    logger.debug(
+        "Matched trigger label issue_number=%s action=%s trigger_label=%s",
+        issue_number,
+        action,
+        config.TRIGGER_LABEL,
+    )
 
     title = issue.get("title")
     body = issue.get("body")
     parsed = parse_dependency(title, body)
+    logger.debug(
+        "Parsed dependency request issue_number=%s dependency=%r target_version=%r",
+        issue_number,
+        parsed.name,
+        parsed.version,
+    )
 
     if not parsed.name:
-        logger.warning("Could not parse a dependency name from issue: %s", title)
+        logger.warning("Could not parse dependency from issue_number=%s", issue_number)
         raise HTTPException(
             status_code=422,
             detail="Could not determine the dependency name from the issue.",
@@ -103,13 +145,21 @@ async def github_webhook(
         repo_url=config.TARGET_REPO_URL,
         dependency=parsed.name,
         target_version=parsed.version or "",
-        issue_number=issue.get("number"),
+        issue_number=issue_number,
         issue_url=issue.get("html_url"),
         issue_title=title,
         issue_body=body,
     )
 
     session_title = f"Upgrade {parsed.name} to {parsed.version or 'latest'}"
+    logger.debug(
+        "Built Devin session request issue_number=%s title=%r prompt_chars=%d "
+        "max_acu_limit=%s",
+        issue_number,
+        session_title,
+        len(prompt),
+        config.DEVIN_MAX_ACU_LIMIT,
+    )
     try:
         session = _get_client().create_session(
             prompt,
@@ -119,7 +169,12 @@ async def github_webhook(
             tags=["dependency-upgrade"],
         )
     except httpx.HTTPStatusError as exc:
-        logger.error("Devin API error: %s - %s", exc.response.status_code, exc.response.text)
+        logger.error(
+            "Devin API request failed status=%s dependency=%s target_version=%s",
+            exc.response.status_code,
+            parsed.name,
+            parsed.version,
+        )
         raise HTTPException(status_code=502, detail="Failed to create Devin session") from exc
 
     logger.info(

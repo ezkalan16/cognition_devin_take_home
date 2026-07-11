@@ -79,6 +79,7 @@ Set the required environment variables (or edit `.env`):
 | Variable                | Required | Description                                                   |
 | ----------------------- | -------- | ------------------------------------------------------------- |
 | `DEVIN_API_KEY`         | yes      | Devin API key (`cog_` prefix).                                |
+| `LOG_LEVEL`             | no       | App log level; defaults to `INFO`. Set to `DEBUG` for diagnostics. |
 | `TARGET_REPO_URL`       | yes      | Repository the session should upgrade.                        |
 | `GITHUB_WEBHOOK_SECRET` | recommended | Shared secret to verify `X-Hub-Signature-256`.             |
 | `DEVIN_API_BASE_URL`    | no       | Defaults to `https://api.devin.ai`.                           |
@@ -91,6 +92,10 @@ Set the required environment variables (or edit `.env`):
 ```bash
 uvicorn app:app --reload --port 8000 --env-file .env
 ```
+
+Set `LOG_LEVEL=DEBUG` to trace webhook validation, filtering, dependency parsing,
+and Devin request/response metadata. Debug logs omit webhook payload contents,
+signatures, API keys, and prompt contents.
 
 ### Docker
 

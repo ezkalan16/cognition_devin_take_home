@@ -1,9 +1,13 @@
 """Minimal client for the Devin REST API."""
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 
 import httpx
+
+
+logger = logging.getLogger("dependency-upgrade-webhook.devin-client")
 
 
 @dataclass
@@ -49,12 +53,20 @@ class DevinClient:
         if tags:
             payload["tags"] = tags
 
+        endpoint = f"{self._base_url}/v1/sessions"
+        logger.debug(
+            "Creating Devin session endpoint=%s title=%r idempotent=%s "
+            "max_acu_limit=%s tags=%s prompt_chars=%d",
+            endpoint,
+            title,
+            idempotent,
+            max_acu_limit,
+            tags or [],
+            len(prompt),
+        )
         with httpx.Client(timeout=self._timeout) as client:
-            resp = client.post(
-                f"{self._base_url}/v1/sessions",
-                headers=self._headers,
-                json=payload,
-            )
+            resp = client.post(endpoint, headers=self._headers, json=payload)
+            logger.debug("Devin API response status=%s", resp.status_code)
             resp.raise_for_status()
             data = resp.json()
 
