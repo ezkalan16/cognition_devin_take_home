@@ -28,6 +28,47 @@ IMPACT_CATEGORIES: list[tuple[str, str]] = [
 ]
 
 
+def build_session_started_message(
+    *,
+    issue_url: str,
+    session_id: str,
+    session_url: str,
+    dependency: str,
+    target_version: str | None,
+) -> str:
+    """Build the first follow-up instruction sent after session creation."""
+    pickup_marker = f"<!-- devin-dependency-upgrade-session:{session_id} -->"
+    completion_marker = f"<!-- devin-dependency-upgrade-complete:{session_id} -->"
+    target = target_version or "latest"
+    return "\n".join(
+        [
+            "Your Devin session has started. As your FIRST task, use the GitHub "
+            "access available inside this Devin session to update the original "
+            f"dependency-upgrade issue: {issue_url}",
+            "",
+            "Read the existing issue comments first. If the following marker is "
+            "already present, do not add a duplicate pickup comment:",
+            pickup_marker,
+            "",
+            "Otherwise, post a comment that includes the marker and says that "
+            "the dependency upgrade has been picked up and sent to Devin. The "
+            "comment must include:",
+            f"- Devin session ID: `{session_id}`",
+            f"- Devin session link: {session_url}",
+            f"- Dependency: `{dependency}`",
+            f"- Target version: `{target}`",
+            "",
+            "Perform this GitHub interaction yourself; the webhook service does "
+            "not have or use GitHub API credentials. After posting the pickup "
+            "comment, continue with the dependency-upgrade instructions.",
+            "",
+            "When you later post the final completion comment required by the "
+            "main prompt, include this marker so retries can be detected:",
+            completion_marker,
+        ]
+    )
+
+
 def build_upgrade_prompt(
     *,
     repo_url: str,
@@ -48,14 +89,17 @@ def build_upgrade_prompt(
       4. Evaluate the researched changes against those usages and produce a
          categorized impact report (breaking changes, new deprecations, changes
          to existing functionality, new functionality) linking to each usage.
-      5. Perform the upgrade and open a PR that includes the report.
-      6. For each deprecation, open a PR replacing the deprecated usage, or —
+      5. Perform the upgrade.
+      6. Open the main upgrade PR with the impact report.
+      7. For each deprecation, open a PR replacing the deprecated usage, or —
          if that is not possible — open a GitHub issue describing the upgrade,
          impacted areas, and the deprecated functionality.
-      7. For changes to existing functionality, assess behavioral impact on the
+      8. For changes to existing functionality, assess behavioral impact on the
          codebase and, if any, generate a report for human review.
-      8. For new functionality, open a GitHub issue describing the upgrade, the
+      9. For new functionality, open a GitHub issue describing the upgrade, the
          new functionality, and where it could improve the codebase.
+      10. Before finishing, update the original request issue with all generated
+          reports and links to every pull request and issue created.
     """
     target = target_version.strip() or "the latest version"
 
@@ -151,7 +195,36 @@ def build_upgrade_prompt(
 
     if issue_number is not None or issue_url:
         ref = issue_url or f"#{issue_number}"
-        lines += ["", f"This upgrade was requested via GitHub issue {ref}."]
+        lines += [
+            "",
+            "10. After ALL upgrade work is complete and immediately before "
+            "finishing the Devin session, add a completion comment to the "
+            f"original GitHub issue {ref}. The comment MUST:",
+            "",
+            "   - Attach every generated report, including "
+            "`DEPENDENCY_UPGRADE_REPORT.md`, `BEHAVIORAL_IMPACT_REPORT.md` when "
+            "created, and any other report. Include each report's complete "
+            "Markdown content in a collapsible `<details>` section and link to "
+            "the committed report file or pull request when available.",
+            "   - List and link every pull request created during the session, "
+            "including the main upgrade PR and any deprecation PRs.",
+            "   - List and link every GitHub issue created during the session, "
+            "including deprecation follow-ups and new-functionality proposals.",
+            "   - State `None` for reports, pull requests, or issues when that "
+            "artifact type has no entries.",
+            "",
+            "   Perform this GitHub interaction yourself using the GitHub access "
+            "available inside this Devin session. The webhook service does not "
+            "have or use GitHub API credentials.",
+            "",
+            "   Do not post this completion comment until the work and artifact "
+            "lists are final. Check for the completion marker supplied in the "
+            "session-start follow-up message before posting so retries do not "
+            "create a duplicate. Do not finish the session until the comment has "
+            "been posted successfully.",
+            "",
+            f"This upgrade was requested via GitHub issue {ref}.",
+        ]
 
     if issue_title:
         lines += ["", f"Issue title: {issue_title}"]

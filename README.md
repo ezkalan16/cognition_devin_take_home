@@ -36,6 +36,10 @@ The issue is expected to contain the **name of the dependency** and the
 8. **Surface usable new functionality**: if new functionality could improve the
    codebase, open a **GitHub issue** describing the upgrade, the new
    functionality available, and where in the codebase it could be used.
+9. **Keep the original issue updated**: as its first task, comment that the
+   upgrade was picked up and include the Devin session ID. Immediately before
+   finishing, add a completion comment containing every generated report and
+   links to every pull request and issue created during the session.
 
 > The repository URL and Devin API token are **placeholders** — set them via
 > environment variables (see `.env.example`).
@@ -61,25 +65,29 @@ The issue is expected to contain the **name of the dependency** and the
 | 2. Check event, action, and label |
 | 3. Parse dependency and version   |
 | 4. Build the upgrade prompt       |
+| 5. Send session ID to Devin       |
 +-----------------+-----------------+
                   |
-                  | POST /v1/sessions
+                  | POST /v1/sessions, then
+                  | POST /v1/sessions/{id}/message
                   v
 +-----------------------------------+
 | Devin session                     |
 |                                   |
-| 1. Clone/read the target repo     |
-| 2. Find current version + usages  |
-| 3. Research release docs          |
-| 4. Categorize upgrade impact      |
-| 5. Update code and run tests      |
+| 1. Comment issue with session ID  |
+| 2. Clone/read the target repo     |
+| 3. Find version, usages, impact   |
+| 4. Update code and run tests      |
+| 5. Open required PRs/issues       |
+| 6. Comment reports + all links    |
 +-----------------+-----------------+
                   |
-                  | Push branches with Git; open PRs/issues
+                  | All outbound GitHub interaction
                   v
 +-----------------------------------+
 | GitHub target repository          |
 |                                   |
+| - Original issue status updates   |
 | - Upgrade PR + impact report      |
 | - Deprecation PRs or issues       |
 | - Behavioral impact report        |
@@ -87,10 +95,12 @@ The issue is expected to contain the **name of the dependency** and the
 +-----------------------------------+
 ```
 
-The webhook service does not modify the repository directly. It supplies the target
-repository URL and upgrade instructions to Devin; the resulting Devin session reads
-the repository, performs the upgrade, and uses GitHub to open the relevant pull
-requests and follow-up issues.
+The webhook service does not call the GitHub API or modify the repository directly.
+After creating the session, it uses the Devin messaging API to provide the new session
+ID. The Devin session performs every outbound GitHub interaction: pickup and
+completion comments on the original issue, repository changes, pull requests, and
+follow-up issues. The session's GitHub integration therefore needs permission to read
+the repository, comment on issues, and create issues and pull requests.
 
 ## Files
 
@@ -102,7 +112,7 @@ requests and follow-up issues.
 | `config.py`             | Environment-driven configuration (with placeholders).          |
 | `dependency_parser.py`  | Extracts `(name, version)` from the issue title/body.          |
 | `prompt.py`             | Builds the instruction prompt for the Devin session.           |
-| `devin_client.py`       | Minimal client for `POST /v1/sessions`.                        |
+| `devin_client.py`       | Client for creating sessions and sending follow-up messages.   |
 | `tests/`                | Unit tests plus the Smee end-to-end webhook test.              |
 
 ## Setup
@@ -134,9 +144,10 @@ uvicorn app:app --reload --port 8000 --env-file .env
 
 At the default `LOG_LEVEL=INFO`, the app logs startup configuration, webhook
 routing and filtering decisions, parsed upgrade requests, and Devin session
-creation. Set `LOG_LEVEL=DEBUG` for additional request metadata such as prompt
-lengths and API response statuses. Logs omit webhook payload contents, signatures,
-API keys, and prompt contents.
+creation and delivery of the session-ID follow-up instruction. Set
+`LOG_LEVEL=DEBUG` for additional request metadata such as prompt/message lengths and
+API response statuses. Logs omit webhook payload contents, signatures, API keys,
+prompt contents, and session-message contents.
 
 ### Docker
 
@@ -172,8 +183,8 @@ npm run test:smee
 ```
 
 The test starts the FastAPI app and a mock Devin API, posts a signed GitHub issue
-event to `SMEE_URL`, and verifies that Smee forwards it through the app into the
-expected outbound Devin session request.
+event to `SMEE_URL`, and verifies that Smee forwards it through the app into both
+the session-creation request and the follow-up message containing the session ID.
 
 ## Configure the GitHub webhook
 
