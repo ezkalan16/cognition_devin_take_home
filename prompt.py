@@ -48,13 +48,14 @@ def build_upgrade_prompt(
       4. Evaluate the researched changes against those usages and produce a
          categorized impact report (breaking changes, new deprecations, changes
          to existing functionality, new functionality) linking to each usage.
-      5. Perform the upgrade and open a PR that includes the report.
-      6. For each deprecation, open a PR replacing the deprecated usage, or —
+      5. Perform the upgrade.
+      6. Open a PR that includes the report.
+      7. For each deprecation, open a PR replacing the deprecated usage, or —
          if that is not possible — open a GitHub issue describing the upgrade,
          impacted areas, and the deprecated functionality.
-      7. For changes to existing functionality, assess behavioral impact on the
+      8. For changes to existing functionality, assess behavioral impact on the
          codebase and, if any, generate a report for human review.
-      8. For new functionality, open a GitHub issue describing the upgrade, the
+      9. For new functionality, open a GitHub issue describing the upgrade, the
          new functionality, and where it could improve the codebase.
     """
     target = target_version.strip() or "the latest version"
