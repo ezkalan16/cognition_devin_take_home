@@ -132,9 +132,11 @@ Set the required environment variables (or edit `.env`):
 uvicorn app:app --reload --port 8000 --env-file .env
 ```
 
-Set `LOG_LEVEL=DEBUG` to trace webhook validation, filtering, dependency parsing,
-and Devin request/response metadata. Debug logs omit webhook payload contents,
-signatures, API keys, and prompt contents.
+At the default `LOG_LEVEL=INFO`, the app logs startup configuration, webhook
+routing and filtering decisions, parsed upgrade requests, and Devin session
+creation. Set `LOG_LEVEL=DEBUG` for additional request metadata such as prompt
+lengths and API response statuses. Logs omit webhook payload contents, signatures,
+API keys, and prompt contents.
 
 ### Docker
 

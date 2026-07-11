@@ -32,14 +32,16 @@ logger = logging.getLogger("dependency-upgrade-webhook")
 logger.setLevel(_log_level)
 
 app = FastAPI(title="Devin Dependency-Upgrade Webhook")
-logger.debug(
-    "Application configured target_repo=%s trigger_label=%s devin_api_base_url=%s "
-    "max_acu_limit=%s signature_verification=%s",
+logger.info(
+    "Application configured target_repo=%s trigger_label=%s signature_verification=%s",
     config.TARGET_REPO_URL,
     config.TRIGGER_LABEL,
+    bool(config.GITHUB_WEBHOOK_SECRET),
+)
+logger.debug(
+    "Devin request configuration api_base_url=%s max_acu_limit=%s",
     config.DEVIN_API_BASE_URL,
     config.DEVIN_MAX_ACU_LIMIT,
-    bool(config.GITHUB_WEBHOOK_SECRET),
 )
 
 
@@ -79,9 +81,9 @@ async def github_webhook(
     x_hub_signature_256: str | None = Header(default=None),
 ) -> dict:
     raw_body = await request.body()
+    logger.info("Received webhook event=%r", x_github_event)
     logger.debug(
-        "Received webhook event=%r body_bytes=%d signature_required=%s signature_present=%s",
-        x_github_event,
+        "Webhook metadata body_bytes=%d signature_required=%s signature_present=%s",
         len(raw_body),
         bool(config.GITHUB_WEBHOOK_SECRET),
         bool(x_hub_signature_256),
@@ -92,25 +94,25 @@ async def github_webhook(
         raise HTTPException(status_code=401, detail="Invalid webhook signature")
 
     if x_github_event == "ping":
-        logger.debug("Responding to GitHub ping event")
+        logger.info("Responding to GitHub ping event")
         return {"status": "pong"}
 
     if x_github_event != "issues":
-        logger.debug("Ignoring unsupported webhook event=%r", x_github_event)
+        logger.info("Ignoring unsupported webhook event=%r", x_github_event)
         return {"status": "ignored", "reason": f"event '{x_github_event}' is not an issue event"}
 
     payload = await request.json()
     action = payload.get("action")
-    logger.debug("Processing issue webhook action=%r", action)
+    logger.info("Processing issue webhook action=%r", action)
     # React when an issue is opened, reopened, or the label is added.
     if action not in {"opened", "reopened", "labeled", "edited"}:
-        logger.debug("Ignoring issue webhook action=%r: unsupported action", action)
+        logger.info("Ignoring issue webhook action=%r: unsupported action", action)
         return {"status": "ignored", "reason": f"action '{action}' not handled"}
 
     issue = payload.get("issue") or {}
     issue_number = issue.get("number")
     if not _has_trigger_label(issue, config.TRIGGER_LABEL):
-        logger.debug(
+        logger.info(
             "Ignoring issue webhook issue_number=%s action=%s: missing trigger_label=%s",
             issue_number,
             action,
@@ -127,7 +129,7 @@ async def github_webhook(
     title = issue.get("title")
     body = issue.get("body")
     parsed = parse_dependency(title, body)
-    logger.debug(
+    logger.info(
         "Parsed dependency request issue_number=%s dependency=%r target_version=%r",
         issue_number,
         parsed.name,
@@ -160,6 +162,12 @@ async def github_webhook(
         len(prompt),
         config.DEVIN_MAX_ACU_LIMIT,
     )
+    logger.info(
+        "Requesting Devin session issue_number=%s dependency=%s target_version=%s",
+        issue_number,
+        parsed.name,
+        parsed.version or "latest",
+    )
     try:
         session = _get_client().create_session(
             prompt,
@@ -178,8 +186,11 @@ async def github_webhook(
         raise HTTPException(status_code=502, detail="Failed to create Devin session") from exc
 
     logger.info(
-        "Created Devin session %s for %s -> %s (%s)",
-        session.session_id, parsed.name, parsed.version, session.url,
+        "Created Devin session session_id=%s dependency=%s target_version=%s session_url=%s",
+        session.session_id,
+        parsed.name,
+        parsed.version,
+        session.url,
     )
     return {
         "status": "session_created",
