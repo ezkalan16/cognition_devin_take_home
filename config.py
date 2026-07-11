@@ -8,6 +8,9 @@ from __future__ import annotations
 
 import os
 
+# Logging level for application diagnostics (DEBUG, INFO, WARNING, ERROR, CRITICAL).
+LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO").upper()
+
 # ---------------------------------------------------------------------------
 # Devin API
 # ---------------------------------------------------------------------------
