@@ -22,18 +22,19 @@ The issue is expected to contain the **name of the dependency** and the
    - **Changes to existing functionality** — behavioral changes to used APIs.
    - **New functionality that can be used in the codebase** — newly added
      features relevant to how the codebase uses the dependency.
-5. **Perform the upgrade** and open a pull request that includes the impact
-   report.
-6. **Handle deprecations**: for each deprecated piece of functionality the
+5. **Perform the upgrade** (bump the manifest/lockfile and apply the required
+   code changes).
+6. **Open a pull request** that includes the impact report.
+7. **Handle deprecations**: for each deprecated piece of functionality the
    codebase uses, open a **separate PR** replacing it with the recommended
    alternative — or, if that isn't possible, open a **GitHub issue** describing
    the dependency upgrade, the impacted area(s) of the codebase, and the
    deprecated functionality.
-7. **Assess behavioral impact**: for each change to existing functionality,
+8. **Assess behavioral impact**: for each change to existing functionality,
    evaluate whether it affects the codebase's behavior given how it uses that
    functionality; if there is any impact, generate a `BEHAVIORAL_IMPACT_REPORT.md`
    highlighting it for human review.
-8. **Surface usable new functionality**: if new functionality could improve the
+9. **Surface usable new functionality**: if new functionality could improve the
    codebase, open a **GitHub issue** describing the upgrade, the new
    functionality available, and where in the codebase it could be used.
 
