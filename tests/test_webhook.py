@@ -74,6 +74,37 @@ def test_triggers_session_on_labeled_issue(client):
     assert "changelog" in prompt
 
 
+def test_info_logs_webhook_lifecycle_without_sensitive_payload(client, caplog):
+    caplog.set_level(logging.INFO, logger="dependency-upgrade-webhook")
+    sensitive_marker = "private-info-log-details"
+
+    response = _post(
+        client,
+        _issue_payload(body=f"Dependency: requests\nVersion: 2.32.0\n{sensitive_marker}"),
+    )
+
+    assert response.status_code == 200
+    assert "Received webhook event='issues'" in caplog.text
+    assert "Processing issue webhook action='opened'" in caplog.text
+    assert "Parsed dependency request issue_number=7 dependency='requests'" in caplog.text
+    assert "Requesting Devin session issue_number=7 dependency=requests" in caplog.text
+    assert "Created Devin session session_id=devin-123 dependency=requests" in caplog.text
+    assert "Built Devin session request" not in caplog.text
+    assert sensitive_marker not in caplog.text
+
+
+def test_info_logs_ignored_webhook_reasons(client, caplog):
+    caplog.set_level(logging.INFO, logger="dependency-upgrade-webhook")
+
+    _post(client, _issue_payload(), event="push")
+    _post(client, _issue_payload(action="closed"))
+    _post(client, _issue_payload(labels=("bug",)))
+
+    assert "Ignoring unsupported webhook event='push'" in caplog.text
+    assert "Ignoring issue webhook action='closed': unsupported action" in caplog.text
+    assert "missing trigger_label=dependency_upgrade" in caplog.text
+
+
 def test_debug_logs_webhook_flow_without_sensitive_payload(client, caplog):
     caplog.set_level(logging.DEBUG, logger="dependency-upgrade-webhook")
     sensitive_marker = "private-issue-details"
