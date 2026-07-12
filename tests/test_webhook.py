@@ -49,10 +49,14 @@ def _issue_payload(action="opened", labels=("dependency_upgrade",), title="Upgra
     }
 
 
+def _smee_payload(payload):
+    return {"payload": json.dumps(payload)}
+
+
 def _post(client, payload, event="issues"):
     return client.post(
         "/webhook",
-        content=json.dumps(payload),
+        content=json.dumps(_smee_payload(payload)),
         headers={"X-GitHub-Event": event, "Content-Type": "application/json"},
     )
 
@@ -175,14 +179,14 @@ def test_devin_client_debug_logs_metadata_without_secrets(monkeypatch, caplog):
     monkeypatch.setattr("devin_client.httpx.Client", FakeHttpClient)
     caplog.set_level(logging.DEBUG, logger="dependency-upgrade-webhook.devin-client")
 
-    DevinClient(api_key=api_key).create_session(
+    DevinClient(api_key=api_key, org_id="org-123").create_session(
         prompt,
         title="Upgrade requests",
         max_acu_limit=5,
         tags=["dependency-upgrade"],
     )
 
-    assert "Creating Devin session endpoint=https://api.devin.ai/v1/sessions" in caplog.text
+    assert "Creating Devin session endpoint=https://api.devin.ai/org-123/sessions" in caplog.text
     assert "title='Upgrade requests'" in caplog.text
     assert "prompt_chars=20" in caplog.text
     assert "Devin API response status=200" in caplog.text
@@ -220,7 +224,7 @@ def test_devin_client_sends_message_without_logging_secrets(monkeypatch, caplog)
     monkeypatch.setattr("devin_client.httpx.Client", FakeHttpClient)
     caplog.set_level(logging.DEBUG, logger="dependency-upgrade-webhook.devin-client")
 
-    DevinClient(api_key=api_key).send_message("devin-123", message)
+    DevinClient(api_key=api_key, org_id="org-123").send_message("devin-123", message)
 
     assert "message_chars=28" in caplog.text
     assert "Devin message response status=200" in caplog.text
@@ -311,7 +315,7 @@ def test_signature_verification(monkeypatch, caplog):
     )
     monkeypatch.setattr(app_module.DevinClient, "send_message", lambda self, session_id, message: None)
     c = TestClient(app_module.app)
-    payload = json.dumps(_issue_payload()).encode()
+    payload = json.dumps(_smee_payload(_issue_payload())).encode()
 
     # Missing signature -> 401
     r = c.post("/webhook", content=payload, headers={"X-GitHub-Event": "issues"})
