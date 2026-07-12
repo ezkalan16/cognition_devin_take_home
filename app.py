@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import json
 import logging
 
 import httpx
@@ -64,7 +65,7 @@ def _has_trigger_label(issue: dict, label: str) -> bool:
 
 
 def _get_client() -> DevinClient:
-    return DevinClient(api_key=config.DEVIN_API_KEY, base_url=config.DEVIN_API_BASE_URL)
+    return DevinClient(api_key=config.DEVIN_API_KEY, org_id=config.DEVIN_ORG_ID,base_url=config.DEVIN_API_BASE_URL)
 
 
 @app.get("/health")
@@ -100,6 +101,9 @@ async def github_webhook(
         return {"status": "ignored", "reason": f"event '{x_github_event}' is not an issue event"}
 
     payload = await request.json()
+    if payload_json := json.loads(payload.get("payload")):
+        payload = payload_json
+    logger.debug("Full payload: %r", payload)
     action = payload.get("action")
     logger.debug("Processing issue webhook action=%r", action)
     # React when an issue is opened, reopened, or the label is added.

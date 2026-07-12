@@ -20,10 +20,11 @@ class CreatedSession:
 class DevinClient:
     """Thin wrapper around the Devin `POST /v1/sessions` endpoint."""
 
-    def __init__(self, api_key: str, base_url: str = "https://api.devin.ai", timeout: float = 30.0):
+    def __init__(self, api_key: str, org_id: str, base_url: str = "https://api.devin.ai", timeout: float = 30.0):
         self._api_key = api_key
         self._base_url = base_url.rstrip("/")
         self._timeout = timeout
+        self._org_id = org_id
 
     @property
     def _headers(self) -> dict[str, str]:
@@ -53,7 +54,7 @@ class DevinClient:
         if tags:
             payload["tags"] = tags
 
-        endpoint = f"{self._base_url}/v1/sessions"
+        endpoint = f"{self._base_url}/{self._org_id}/sessions"
         logger.debug(
             "Creating Devin session endpoint=%s title=%r idempotent=%s "
             "max_acu_limit=%s tags=%s prompt_chars=%d",

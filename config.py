@@ -17,6 +17,8 @@ LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO").upper()
 # Base URL for the Devin REST API.
 DEVIN_API_BASE_URL: str = os.getenv("DEVIN_API_BASE_URL", "https://api.devin.ai")
 
+DEVIN_ORG_ID: str = os.getenv("DEVIN_ORG_ID", "org_REPLACE_ME_WITH_YOUR_DEVIN_ORG_ID")
+
 # Devin API key (Service User API Key or Personal Access Token, "cog_" prefix).
 # PLACEHOLDER — replace via the DEVIN_API_KEY environment variable.
 DEVIN_API_KEY: str = os.getenv("DEVIN_API_KEY", "cog_REPLACE_ME_WITH_YOUR_DEVIN_API_KEY")
