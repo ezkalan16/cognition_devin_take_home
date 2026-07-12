@@ -105,7 +105,6 @@ async def github_webhook(
     payload = await request.json()
     if payload_json := json.loads(payload.get("payload")):
         payload = payload_json
-    logger.debug("Full payload: %r", payload)
     action = payload.get("action")
     logger.info("Processing issue webhook action=%r", action)
     # React when an issue is opened, reopened, or the label is added.

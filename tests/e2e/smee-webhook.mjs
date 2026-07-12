@@ -14,6 +14,7 @@ const dependency = `smee-e2e-${randomUUID()}`;
 const targetVersion = "9.8.7";
 const webhookSecret = "smee-e2e-secret";
 const devinApiKey = "cog_smee_e2e";
+const devinOrgId = "org-smee-e2e";
 
 if (!source || source.includes("REPLACE_WITH_YOUR_CHANNEL")) {
   throw new Error("Set SMEE_URL in .env to your https://smee.io channel URL");
@@ -98,7 +99,7 @@ const mockDevin = createServer((request, response) => {
       assert.equal(request.method, "POST");
       const body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
 
-      if (request.url === "/v1/sessions") {
+      if (request.url === `/${devinOrgId}/sessions`) {
         response.writeHead(200, { "content-type": "application/json" });
         response.end(JSON.stringify({
           session_id: "devin-smee-e2e",
@@ -155,6 +156,7 @@ try {
         ...process.env,
         DEVIN_API_BASE_URL: `http://127.0.0.1:${mockPort}`,
         DEVIN_API_KEY: devinApiKey,
+        DEVIN_ORG_ID: devinOrgId,
         TARGET_REPO_URL: "https://github.com/your-org/your-repo",
         GITHUB_WEBHOOK_SECRET: webhookSecret,
       },
@@ -174,7 +176,7 @@ try {
   await smee.start();
   await withTimeout(connectedPromise, 10_000, `Timed out connecting to ${source}`);
 
-  const payload = {
+  const githubPayload = {
     action: "opened",
     issue: {
       number: 7,
@@ -184,7 +186,7 @@ try {
       labels: [{ name: "dependency_upgrade" }],
     },
   };
-  const rawBody = JSON.stringify(payload);
+  const rawBody = JSON.stringify({ payload: JSON.stringify(githubPayload) });
   const signature = `sha256=${createHmac("sha256", webhookSecret).update(rawBody).digest("hex")}`;
   const sourceResponse = await fetch(source, {
     method: "POST",
