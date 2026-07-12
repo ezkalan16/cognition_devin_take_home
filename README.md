@@ -5,41 +5,52 @@ issue is raised (or labeled) with the **`dependency_upgrade`** label, triggers a
 [Devin](https://devin.ai) session via the Devin API to perform the upgrade.
 
 The issue is expected to contain the **name of the dependency** and the
-**version to upgrade to**. The triggered Devin session is instructed to:
+**version to upgrade to**.
 
-1. **Identify the current version** of the dependency used in the code
-   repository (by inspecting manifests/lockfiles such as `package.json`,
-   `requirements.txt`, `pyproject.toml`, `go.mod`, `Cargo.toml`, etc.).
-2. **Research** any changelog, release notes, and upgrade/migration guides
-   relevant between the current version and the new version.
-3. **Locate every usage** of the dependency in the codebase (imports, calls,
-   config) and record each file/line.
-4. **Produce a categorized impact report** (`DEPENDENCY_UPGRADE_REPORT.md`) that
-   evaluates the researched changes against the actual usages, links each item
-   to where it is used in the codebase, and groups them into four categories:
-   - **Breaking changes** — must be fixed for the upgrade.
-   - **New deprecations** — still work but should be migrated.
-   - **Changes to existing functionality** — behavioral changes to used APIs.
-   - **New functionality that can be used in the codebase** — newly added
-     features relevant to how the codebase uses the dependency.
-5. **Perform the upgrade** and open a pull request that includes the impact
-   report.
-6. **Handle deprecations**: for each deprecated piece of functionality the
-   codebase uses, open a **separate PR** replacing it with the recommended
-   alternative — or, if that isn't possible, open a **GitHub issue** describing
-   the dependency upgrade, the impacted area(s) of the codebase, and the
-   deprecated functionality.
-7. **Assess behavioral impact**: for each change to existing functionality,
-   evaluate whether it affects the codebase's behavior given how it uses that
-   functionality; if there is any impact, generate a `BEHAVIORAL_IMPACT_REPORT.md`
-   highlighting it for human review.
-8. **Surface usable new functionality**: if new functionality could improve the
-   codebase, open a **GitHub issue** describing the upgrade, the new
-   functionality available, and where in the codebase it could be used.
-9. **Keep the original issue updated**: as its first task, comment that the
-   upgrade was picked up and include the Devin session ID. Immediately before
-   finishing, add a completion comment containing every generated report and
-   links to every pull request and issue created during the session.
+## Application workflow
+
+For each request to `POST /webhook`, the FastAPI app performs these steps in
+order:
+
+1. Read the raw request body and verify `X-Hub-Signature-256` when a webhook
+   secret is configured.
+2. Return `pong` for GitHub `ping` events and ignore events other than `issues`.
+3. Accept only `opened`, `reopened`, `labeled`, and `edited` issue actions.
+4. Require the configured trigger label (default: `dependency_upgrade`).
+5. Parse the dependency name and target version, then validate the issue number
+   and resolve the original issue URL.
+6. Build the dependency-upgrade prompt and session title.
+7. Create an idempotent Devin session with `POST /v1/sessions`.
+8. Send the resulting session ID, session URL, and pickup-comment instructions
+   to that session with `POST /v1/sessions/{session_id}/message`.
+9. Return the dependency, target version, session ID, session URL, and
+   `issue_update_requested=true` to the webhook caller.
+
+## Devin session workflow
+
+The follow-up message makes the pickup update Devin's first task. The session
+then performs the main upgrade prompt in this order:
+
+1. **Comment on the original issue** that the upgrade was picked up and sent to
+   Devin, including the Devin session ID and link. Existing marker comments are
+   checked first to prevent duplicates.
+2. **Identify the current version** from the repository manifests and lockfiles.
+3. **Research** relevant changelogs, release notes, and upgrade/migration guides.
+4. **Locate every usage** of the dependency and record its file and line.
+5. **Create `DEPENDENCY_UPGRADE_REPORT.md`**, evaluating researched changes
+   against actual usage under breaking changes, new deprecations, changes to
+   existing functionality, and usable new functionality.
+6. **Perform the upgrade**, apply required code changes, and run the project
+   build and tests.
+7. **Open the main upgrade PR**, including the categorized impact report.
+8. **Handle deprecations** with separate replacement PRs, or GitHub issues when
+   replacement is not feasible.
+9. **Assess behavioral impact** and create `BEHAVIORAL_IMPACT_REPORT.md` for
+   human review when existing functionality changes affect the codebase.
+10. **Surface usable new functionality** in GitHub issues that link to relevant
+    codebase locations.
+11. **Comment on the original issue before finishing**, attaching every generated
+    report and linking every pull request and GitHub issue created by the session.
 
 > The repository URL and Devin API token are **placeholders** — set them via
 > environment variables (see `.env.example`).
@@ -47,52 +58,40 @@ The issue is expected to contain the **name of the dependency** and the
 ## How it works
 
 ```text
-+-----------------------------------+
-| GitHub target repository          |
-|                                   |
-| Issue opened/labeled with:        |
-| dependency_upgrade                |
-+-----------------+-----------------+
-                  |
-                  | GitHub "issues" webhook
-                  v
-+-----------------------------------+
-| FastAPI service                   |
-|                                   |
-| POST /webhook  <-- entrypoint     |
-|                                   |
-| 1. Verify HMAC signature          |
-| 2. Check event, action, and label |
-| 3. Parse dependency and version   |
-| 4. Build the upgrade prompt       |
-| 5. Send session ID to Devin       |
-+-----------------+-----------------+
-                  |
-                  | POST /v1/sessions, then
-                  | POST /v1/sessions/{id}/message
-                  v
-+-----------------------------------+
-| Devin session                     |
-|                                   |
-| 1. Comment issue with session ID  |
-| 2. Clone/read the target repo     |
-| 3. Find version, usages, impact   |
-| 4. Update code and run tests      |
-| 5. Open required PRs/issues       |
-| 6. Comment reports + all links    |
-+-----------------+-----------------+
-                  |
-                  | All outbound GitHub interaction
-                  v
-+-----------------------------------+
-| GitHub target repository          |
-|                                   |
-| - Original issue status updates   |
-| - Upgrade PR + impact report      |
-| - Deprecation PRs or issues       |
-| - Behavioral impact report        |
-| - New-functionality issues        |
-+-----------------------------------+
++-------------------------------------+
+| GitHub target repository            |
+| dependency_upgrade issue event      |
++------------------+------------------+
+                   | POST /webhook
+                   v
++-------------------------------------+
+| FastAPI app                         |
+|                                     |
+| 1. Verify webhook signature         |
+| 2. Route event and validate action  |
+| 3. Require trigger label            |
+| 4. Parse dependency + issue data    |
+| 5. Build prompt + session title     |
+| 6. POST /v1/sessions                |
+| 7. POST /v1/sessions/{id}/message   |
+| 8. Return session metadata          |
++------------------+------------------+
+                   | Devin APIs only
+                   v
++-------------------------------------+
+| Devin session                       |
+|                                     |
+| 1. Comment pickup + session ID      |
+| 2. Research, report, and upgrade    |
+| 3. Open required PRs/issues         |
+| 4. Comment reports + artifact links |
++------------------+------------------+
+                   | All outbound GitHub actions
+                   v
++-------------------------------------+
+| GitHub target repository            |
+| issue updates, reports, PRs, issues |
++-------------------------------------+
 ```
 
 The webhook service does not call the GitHub API or modify the repository directly.
