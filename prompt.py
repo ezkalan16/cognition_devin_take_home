@@ -83,22 +83,24 @@ def build_upgrade_prompt(
 
     The prompt asks Devin to:
       1. Identify the dependency's current version in the target repo.
-      2. Research changelog / release notes / upgrade guides between the
-         current and target versions.
-      3. Locate every usage of the dependency in the codebase.
-      4. Evaluate the researched changes against those usages and produce a
+      2. Consult DeepWiki for repository and dependency context, then verify its
+         findings against the current checkout.
+      3. Research official changelog / release notes / upgrade guides between
+         the current and target versions.
+      4. Locate every usage of the dependency in the codebase.
+      5. Evaluate the researched changes against those usages and produce a
          categorized impact report (breaking changes, new deprecations, changes
          to existing functionality, new functionality) linking to each usage.
-      5. Perform the upgrade.
-      6. Open the main upgrade PR with the impact report.
-      7. For each deprecation, open a PR replacing the deprecated usage, or —
+      6. Perform the upgrade.
+      7. Open the main upgrade PR with the impact report.
+      8. For each deprecation, open a PR replacing the deprecated usage, or —
          if that is not possible — open a GitHub issue describing the upgrade,
          impacted areas, and the deprecated functionality.
-      8. For changes to existing functionality, assess behavioral impact on the
+      9. For changes to existing functionality, assess behavioral impact on the
          codebase and, if any, generate a report for human review.
-      9. For new functionality, open a GitHub issue describing the upgrade, the
-         new functionality, and where it could improve the codebase.
-      10. Before finishing, update the original request issue with all generated
+      10. For new functionality, open a GitHub issue describing the upgrade, the
+          new functionality, and where it could improve the codebase.
+      11. Before finishing, update the original request issue with all generated
           reports and links to every pull request and issue created.
     """
     target = target_version.strip() or "the latest version"
@@ -120,18 +122,32 @@ def build_upgrade_prompt(
         "Gemfile.lock, pom.xml, build.gradle, Cargo.toml, etc.) to determine "
         "exactly which version is currently pinned or resolved.",
         "",
-        f"2. Research any changelog, release notes, and upgrade/migration "
-        f"guides relevant to `{dependency}` between the current version and "
-        f"`{target}`. Compile the full set of relevant changes (breaking "
-        "changes, deprecations, behavioral changes, and newly added features).",
+        "2. Use Devin's DeepWiki functionality as the FIRST research source. "
+        f"Query DeepWiki for the target repository and, when available, the "
+        f"public source repository for `{dependency}`. Use it to understand "
+        "the codebase architecture, likely dependency integration points, and "
+        "relevant dependency APIs or changes. Treat DeepWiki as reusable "
+        "indexed context, not as the sole source of truth. Verify every finding "
+        "against the CURRENT checkout and exact commit because the index may "
+        "lag the branch. If DeepWiki is unavailable or a repository is not "
+        "indexed, record that limitation and continue without blocking the "
+        "upgrade.",
         "",
-        f"3. Find EVERY usage of `{dependency}` in the codebase: imports, "
+        f"3. Research the official changelog, release notes, and "
+        f"upgrade/migration guides relevant to `{dependency}` between the "
+        f"current version and `{target}`. Use these official sources to confirm "
+        "or correct the DeepWiki findings and compile the full set of relevant "
+        "changes (breaking changes, deprecations, behavioral changes, and newly "
+        "added features).",
+        "",
+        f"4. Find EVERY usage of `{dependency}` in the codebase: imports, "
         "function/class/method calls, configuration, and any indirect usage. "
-        "Record the exact file path and line number for each usage so it can be "
-        "referenced.",
+        "Use DeepWiki findings to guide the search, but verify the exact file "
+        "path and line number for each usage in the current checkout so it can "
+        "be referenced.",
         "",
-        "4. Evaluate the changes from step 2 against the actual usages from "
-        f"step 3 and produce an IMPACT REPORT. Only include changes that are "
+        "5. Evaluate the changes from step 3 against the actual usages from "
+        f"step 4 and produce an IMPACT REPORT. Only include changes that are "
         "relevant to how this codebase uses the dependency. Categorize every "
         "relevant change under one of the following headings:",
         "",
@@ -145,17 +161,17 @@ def build_upgrade_prompt(
         "items, state \"None\" under that heading. Write the report to "
         "`DEPENDENCY_UPGRADE_REPORT.md` at the repo root.",
         "",
-        f"5. Perform the upgrade: bump `{dependency}` to `{target}` in the "
+        f"6. Perform the upgrade: bump `{dependency}` to `{target}` in the "
         "appropriate manifest(s) and lockfile(s), then apply the code changes "
         "required by the breaking changes and deprecations you identified so "
         "the project builds and its tests pass.",
         "",
-        "6. Open a pull request with the upgrade. Include the full impact report "
+        "7. Open a pull request with the upgrade. Include the full impact report "
         "(the four categories with codebase links) in the PR description, along "
         "with the current version, the target version, and the migration steps "
         "you applied.",
         "",
-        "7. Handle the deprecations from the \"New deprecations\" category. For "
+        "8. Handle the deprecations from the \"New deprecations\" category. For "
         "each deprecated piece of functionality the codebase uses:",
         "",
         "   - If it is possible to migrate off it, open a SEPARATE pull request "
@@ -171,7 +187,7 @@ def build_upgrade_prompt(
         "",
         "   If there are no deprecations, skip this step.",
         "",
-        "8. Assess the \"Changes to existing functionality\" category for "
+        "9. Assess the \"Changes to existing functionality\" category for "
         "behavioral impact. For each such change, determine whether it would "
         "actually affect the behavior of THIS codebase given how it uses the "
         "affected functionality (consider the arguments passed, the return "
@@ -183,7 +199,7 @@ def build_upgrade_prompt(
         "effect on the codebase. If no change has any behavioral impact, state "
         "that explicitly instead of creating the report.",
         "",
-        "9. Handle the \"New functionality that can be used in the codebase\" "
+        "10. Handle the \"New functionality that can be used in the codebase\" "
         f"category. If there is new functionality in `{dependency}` that could "
         f"improve the codebase, open a GitHub issue in {repo_url} that "
         f"describes: the dependency upgrade (`{dependency}` from the current "
@@ -197,7 +213,7 @@ def build_upgrade_prompt(
         ref = issue_url or f"#{issue_number}"
         lines += [
             "",
-            "10. After ALL upgrade work is complete and immediately before "
+            "11. After ALL upgrade work is complete and immediately before "
             "finishing the Devin session, add a completion comment to the "
             f"original GitHub issue {ref}. The comment MUST:",
             "",
