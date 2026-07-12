@@ -216,7 +216,7 @@ def test_devin_client_sends_message_without_logging_secrets(monkeypatch, caplog)
             return None
 
         def post(self, endpoint, *, headers, json):
-            assert endpoint == "https://api.devin.ai/v1/sessions/devin-123/message"
+            assert endpoint == "https://api.devin.ai/org-123/sessions/devin-123/messages"
             assert headers["Authorization"] == f"Bearer {api_key}"
             assert json == {"message": message}
             return FakeResponse()
@@ -224,7 +224,7 @@ def test_devin_client_sends_message_without_logging_secrets(monkeypatch, caplog)
     monkeypatch.setattr("devin_client.httpx.Client", FakeHttpClient)
     caplog.set_level(logging.DEBUG, logger="dependency-upgrade-webhook.devin-client")
 
-    DevinClient(api_key=api_key, org_id="org-123").send_message("devin-123", message)
+    DevinClient(api_key=api_key, org_id="org-123").send_message("123", message)
 
     assert "message_chars=28" in caplog.text
     assert "Devin message response status=200" in caplog.text
