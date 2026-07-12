@@ -35,21 +35,26 @@ then performs the main upgrade prompt in this order:
    Devin, including the Devin session ID and link. Existing marker comments are
    checked first to prevent duplicates.
 2. **Identify the current version** from the repository manifests and lockfiles.
-3. **Research** relevant changelogs, release notes, and upgrade/migration guides.
-4. **Locate every usage** of the dependency and record its file and line.
-5. **Create `DEPENDENCY_UPGRADE_REPORT.md`**, evaluating researched changes
+3. **Query DeepWiki first** for indexed context about the target repository and,
+   when available, the dependency's public source repository. Verify every
+   finding against the current checkout and continue without blocking if
+   DeepWiki is unavailable or a repository is not indexed.
+4. **Research authoritative sources** such as official changelogs, release notes,
+   and upgrade/migration guides to confirm or correct the DeepWiki findings.
+5. **Locate every usage** of the dependency and record its file and line.
+6. **Create `DEPENDENCY_UPGRADE_REPORT.md`**, evaluating researched changes
    against actual usage under breaking changes, new deprecations, changes to
    existing functionality, and usable new functionality.
-6. **Perform the upgrade**, apply required code changes, and run the project
+7. **Perform the upgrade**, apply required code changes, and run the project
    build and tests.
-7. **Open the main upgrade PR**, including the categorized impact report.
-8. **Handle deprecations** with separate replacement PRs, or GitHub issues when
+8. **Open the main upgrade PR**, including the categorized impact report.
+9. **Handle deprecations** with separate replacement PRs, or GitHub issues when
    replacement is not feasible.
-9. **Assess behavioral impact** and create `BEHAVIORAL_IMPACT_REPORT.md` for
-   human review when existing functionality changes affect the codebase.
-10. **Surface usable new functionality** in GitHub issues that link to relevant
+10. **Assess behavioral impact** and create `BEHAVIORAL_IMPACT_REPORT.md` for
+    human review when existing functionality changes affect the codebase.
+11. **Surface usable new functionality** in GitHub issues that link to relevant
     codebase locations.
-11. **Comment on the original issue before finishing**, attaching every generated
+12. **Comment on the original issue before finishing**, attaching every generated
     report and linking every pull request and GitHub issue created by the session.
 
 > The repository URL and Devin API token are **placeholders** — set them via
@@ -82,9 +87,10 @@ then performs the main upgrade prompt in this order:
 | Devin session                       |
 |                                     |
 | 1. Comment pickup + session ID      |
-| 2. Research, report, and upgrade    |
-| 3. Open required PRs/issues         |
-| 4. Comment reports + artifact links |
+| 2. Query DeepWiki, then verify      |
+| 3. Research, report, and upgrade    |
+| 4. Open required PRs/issues         |
+| 5. Comment reports + artifact links |
 +------------------+------------------+
                    | All outbound GitHub actions
                    v
@@ -100,6 +106,11 @@ ID. The Devin session performs every outbound GitHub interaction: pickup and
 completion comments on the original issue, repository changes, pull requests, and
 follow-up issues. The session's GitHub integration therefore needs permission to read
 the repository, comment on issues, and create issues and pull requests.
+
+DeepWiki is used as an indexed research aid, not as the sole source of truth. The
+session verifies its findings against the current checkout and confirms version-specific
+changes with official dependency documentation. A missing or stale DeepWiki index does
+not block the upgrade.
 
 ## Files
 

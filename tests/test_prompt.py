@@ -42,6 +42,34 @@ def test_prompt_includes_key_steps():
     assert "issues/42" in prompt
 
 
+def test_prompt_uses_deepwiki_then_verifies_against_authoritative_sources():
+    prompt = build_upgrade_prompt(
+        repo_url="https://github.com/your-org/your-repo",
+        dependency="requests",
+        target_version="2.32.0",
+    )
+
+    deepwiki_step = prompt[
+        prompt.index("2. Use Devin's DeepWiki functionality"):
+        prompt.index("3. Research the official changelog")
+    ]
+    assert "FIRST research source" in deepwiki_step
+    assert "target repository" in deepwiki_step
+    assert "public source repository" in deepwiki_step
+    assert "reusable indexed context" in deepwiki_step
+    assert "not as the sole source of truth" in deepwiki_step
+    assert "CURRENT checkout and exact commit" in deepwiki_step
+    assert "continue without blocking" in deepwiki_step
+
+    official_research_step = prompt[
+        prompt.index("3. Research the official changelog"):
+        prompt.index("4. Find EVERY usage")
+    ]
+    assert "release notes" in official_research_step
+    assert "upgrade/migration guides" in official_research_step
+    assert "confirm or correct the DeepWiki findings" in official_research_step
+
+
 def test_prompt_defaults_to_latest_when_no_version():
     prompt = build_upgrade_prompt(
         repo_url="https://github.com/your-org/your-repo",
@@ -111,7 +139,7 @@ def test_prompt_updates_original_issue_when_session_completes():
         issue_url=issue_url,
     )
 
-    completion_step = prompt[prompt.index("10. After ALL upgrade work is complete"):]
+    completion_step = prompt[prompt.index("11. After ALL upgrade work is complete"):]
     assert issue_url in completion_step
     assert "DEPENDENCY_UPGRADE_REPORT.md" in completion_step
     assert "BEHAVIORAL_IMPACT_REPORT.md" in completion_step
@@ -129,7 +157,7 @@ def test_prompt_opens_issue_for_usable_new_functionality():
         dependency="requests",
         target_version="2.32.0",
     )
-    step = prompt[prompt.index("9. Handle"):]
+    step = prompt[prompt.index("10. Handle"):]
     assert "new functionality that is now available" in step.lower()
     assert "GitHub issue" in step
     assert "improve the code" in step.lower()
