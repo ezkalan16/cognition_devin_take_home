@@ -79,7 +79,7 @@ class DevinClient:
 
     def send_message(self, session_id: str, message: str) -> None:
         """Send additional instructions to an active Devin session."""
-        endpoint = f"{self._base_url}/v1/sessions/{session_id}/message"
+        endpoint = f"{self._base_url}/{self._org_id}/sessions/devin-{session_id}/messages"
         logger.debug(
             "Sending Devin session message endpoint=%s message_chars=%d",
             endpoint,

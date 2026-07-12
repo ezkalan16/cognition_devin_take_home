@@ -67,7 +67,7 @@ def _has_trigger_label(issue: dict, label: str) -> bool:
 
 
 def _get_client() -> DevinClient:
-    return DevinClient(api_key=config.DEVIN_API_KEY, org_id=config.DEVIN_ORG_ID,base_url=config.DEVIN_API_BASE_URL)
+    return DevinClient(api_key=config.DEVIN_API_KEY, org_id=config.DEVIN_ORG_ID, base_url=config.DEVIN_API_BASE_URL)
 
 
 @app.get("/health")
@@ -109,7 +109,7 @@ async def github_webhook(
     action = payload.get("action")
     logger.info("Processing issue webhook action=%r", action)
     # React when an issue is opened, reopened, or the label is added.
-    if action not in {"opened", "reopened", "labeled", "edited"}:
+    if action not in {"opened"}:
         logger.info("Ignoring issue webhook action=%r: unsupported action", action)
         return {"status": "ignored", "reason": f"action '{action}' not handled"}
 
