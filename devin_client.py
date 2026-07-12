@@ -18,7 +18,7 @@ class CreatedSession:
 
 
 class DevinClient:
-    """Thin wrapper around the Devin `POST /v1/sessions` endpoint."""
+    """Thin wrapper around the Devin v1 session endpoints."""
 
     def __init__(self, api_key: str, org_id: str, base_url: str = "https://api.devin.ai", timeout: float = 30.0):
         self._api_key = api_key
@@ -76,3 +76,20 @@ class DevinClient:
             url=data["url"],
             is_new_session=data.get("is_new_session"),
         )
+
+    def send_message(self, session_id: str, message: str) -> None:
+        """Send additional instructions to an active Devin session."""
+        endpoint = f"{self._base_url}/v1/sessions/{session_id}/message"
+        logger.debug(
+            "Sending Devin session message endpoint=%s message_chars=%d",
+            endpoint,
+            len(message),
+        )
+        with httpx.Client(timeout=self._timeout) as client:
+            response = client.post(
+                endpoint,
+                headers=self._headers,
+                json={"message": message},
+            )
+            logger.debug("Devin message response status=%s", response.status_code)
+            response.raise_for_status()

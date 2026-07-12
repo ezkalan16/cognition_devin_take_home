@@ -83,6 +83,11 @@ const capturePromise = new Promise((resolve, reject) => {
   resolveCapture = resolve;
   rejectCapture = reject;
 });
+const captures = {};
+
+function resolveWhenComplete() {
+  if (captures.session && captures.message) resolveCapture(captures);
+}
 
 const mockDevin = createServer((request, response) => {
   const chunks = [];
@@ -91,17 +96,27 @@ const mockDevin = createServer((request, response) => {
   request.on("end", () => {
     try {
       assert.equal(request.method, "POST");
-      assert.equal(request.url, "/v1/sessions");
       const body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
-      response.writeHead(200, { "content-type": "application/json" });
-      response.end(JSON.stringify({
-        session_id: "devin-smee-e2e",
-        url: "https://app.devin.ai/sessions/smee-e2e",
-        is_new_session: true,
-      }));
-      if (body.prompt?.includes(dependency)) {
-        resolveCapture({ headers: request.headers, body });
+
+      if (request.url === "/v1/sessions") {
+        response.writeHead(200, { "content-type": "application/json" });
+        response.end(JSON.stringify({
+          session_id: "devin-smee-e2e",
+          url: "https://app.devin.ai/sessions/smee-e2e",
+          is_new_session: true,
+        }));
+        if (body.prompt?.includes(dependency)) {
+          captures.session = { headers: request.headers, body };
+        }
+      } else if (request.url === "/v1/sessions/devin-smee-e2e/message") {
+        response.writeHead(200, { "content-type": "application/json" });
+        response.end("null");
+        captures.message = { headers: request.headers, body };
+      } else {
+        response.writeHead(404);
+        response.end();
       }
+      resolveWhenComplete();
     } catch (error) {
       response.writeHead(500);
       response.end();
@@ -189,14 +204,18 @@ try {
     `Timed out waiting for the relayed webhook\n${appLogs.value}`,
   );
 
-  assert.equal(capture.headers.authorization, `Bearer ${devinApiKey}`);
-  assert.equal(capture.body.title, `Upgrade ${dependency} to ${targetVersion}`);
-  assert.equal(capture.body.idempotent, true);
-  assert.match(capture.body.prompt, new RegExp(dependency));
-  assert.match(capture.body.prompt, new RegExp(targetVersion.replaceAll(".", "\\.")));
+  assert.equal(capture.session.headers.authorization, `Bearer ${devinApiKey}`);
+  assert.equal(capture.session.body.title, `Upgrade ${dependency} to ${targetVersion}`);
+  assert.equal(capture.session.body.idempotent, true);
+  assert.match(capture.session.body.prompt, new RegExp(dependency));
+  assert.match(capture.session.body.prompt, new RegExp(targetVersion.replaceAll(".", "\\.")));
+  assert.equal(capture.message.headers.authorization, `Bearer ${devinApiKey}`);
+  assert.match(capture.message.body.message, /Devin session ID: `devin-smee-e2e`/);
+  assert.match(capture.message.body.message, /picked up and sent to Devin/);
+  assert.match(capture.message.body.message, /issues\/7/);
 
   console.info("PASS: Smee relayed the signed GitHub issue webhook to the local app");
-  console.info("PASS: The local app created the expected outbound Devin request");
+  console.info("PASS: The app created the session and sent its ID back to Devin");
 } finally {
   if (smee) await smee.stop();
   await stopProcess(app);
