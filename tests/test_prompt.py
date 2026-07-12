@@ -88,7 +88,10 @@ def test_prompt_includes_impact_report_and_categories():
     # Asks for the report + evaluating changes against codebase usage.
     assert "IMPACT REPORT" in prompt
     assert "usage" in prompt.lower()
-    assert "DEPENDENCY_UPGRADE_REPORT.md" in prompt
+    assert "Keep the complete report Markdown in the session context" in prompt
+    assert "Do NOT create, write, stage, or commit a report file" in prompt
+    assert "do not copy the report content into a pull request" in prompt
+    assert "DEPENDENCY_UPGRADE_REPORT.md" not in prompt
 
     # All four required categories are present.
     assert "Breaking changes" in prompt
@@ -125,8 +128,11 @@ def test_prompt_assesses_behavioral_impact_for_existing_functionality_changes():
         target_version="2.32.0",
     )
     assert "behavior" in prompt.lower()
-    assert "BEHAVIORAL_IMPACT_REPORT.md" in prompt
+    assert "Behavioral Impact Report in Markdown" in prompt
     assert "human review" in prompt.lower()
+    assert "Keep this report only in the session context" in prompt
+    assert "do not create or commit a report file" in prompt
+    assert "BEHAVIORAL_IMPACT_REPORT.md" not in prompt
 
 
 def test_prompt_updates_original_issue_when_session_completes():
@@ -141,9 +147,16 @@ def test_prompt_updates_original_issue_when_session_completes():
 
     completion_step = prompt[prompt.index("11. After ALL upgrade work is complete"):]
     assert issue_url in completion_step
-    assert "DEPENDENCY_UPGRADE_REPORT.md" in completion_step
-    assert "BEHAVIORAL_IMPACT_REPORT.md" in completion_step
+    assert "Dependency Upgrade Report" in completion_step
+    assert "Behavioral Impact Report" in completion_step
     assert "complete Markdown content" in completion_step
+    assert "only location containing the report content" in completion_step
+    assert (
+        "Do not create, write, stage, commit, attach, or link to report files"
+        in completion_step
+    )
+    assert "DEPENDENCY_UPGRADE_REPORT.md" not in completion_step
+    assert "BEHAVIORAL_IMPACT_REPORT.md" not in completion_step
     assert "every pull request" in completion_step
     assert "every GitHub issue" in completion_step
     assert "Do not finish the session" in completion_step

@@ -42,20 +42,23 @@ then performs the main upgrade prompt in this order:
 4. **Research authoritative sources** such as official changelogs, release notes,
    and upgrade/migration guides to confirm or correct the DeepWiki findings.
 5. **Locate every usage** of the dependency and record its file and line.
-6. **Create `DEPENDENCY_UPGRADE_REPORT.md`**, evaluating researched changes
-   against actual usage under breaking changes, new deprecations, changes to
-   existing functionality, and usable new functionality.
+6. **Prepare a categorized Markdown impact report** in session context,
+   evaluating researched changes against actual usage under breaking changes,
+   new deprecations, changes to existing functionality, and usable new
+   functionality. No report file is created in the repository.
 7. **Perform the upgrade**, apply required code changes, and run the project
    build and tests.
-8. **Open the main upgrade PR**, including the categorized impact report.
+8. **Open the main upgrade PR** with the versions, migration steps, validation,
+   and original issue link, but without report files or report content.
 9. **Handle deprecations** with separate replacement PRs, or GitHub issues when
    replacement is not feasible.
-10. **Assess behavioral impact** and create `BEHAVIORAL_IMPACT_REPORT.md` for
-    human review when existing functionality changes affect the codebase.
+10. **Assess behavioral impact** and prepare a Markdown report in session context
+    for human review when existing functionality changes affect the codebase.
 11. **Surface usable new functionality** in GitHub issues that link to relevant
     codebase locations.
-12. **Comment on the original issue before finishing**, attaching every generated
-    report and linking every pull request and GitHub issue created by the session.
+12. **Comment on the original issue before finishing**, placing every report's
+    complete Markdown content there and linking every pull request and GitHub
+    issue created by the session.
 
 > The repository URL and Devin API token are **placeholders** — set them via
 > environment variables (see `.env.example`).
@@ -90,13 +93,13 @@ then performs the main upgrade prompt in this order:
 | 2. Query DeepWiki, then verify      |
 | 3. Research, report, and upgrade    |
 | 4. Open required PRs/issues         |
-| 5. Comment reports + artifact links |
+| 5. Comment report content + links   |
 +------------------+------------------+
                    | All outbound GitHub actions
                    v
 +-------------------------------------+
 | GitHub target repository            |
-| issue updates, reports, PRs, issues |
+| issue comments (reports), PRs/issues|
 +-------------------------------------+
 ```
 
@@ -111,6 +114,11 @@ DeepWiki is used as an indexed research aid, not as the sole source of truth. Th
 session verifies its findings against the current checkout and confirms version-specific
 changes with official dependency documentation. A missing or stale DeepWiki index does
 not block the upgrade.
+
+Reports are never written, staged, or committed as repository files, and their content is
+not copied into pull request descriptions or follow-up issues. The original dependency-
+upgrade issue's final completion comment is the only GitHub location containing the full
+Markdown reports.
 
 ## Files
 

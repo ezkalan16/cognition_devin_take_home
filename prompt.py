@@ -88,16 +88,15 @@ def build_upgrade_prompt(
       3. Research official changelog / release notes / upgrade guides between
          the current and target versions.
       4. Locate every usage of the dependency in the codebase.
-      5. Evaluate the researched changes against those usages and produce a
-         categorized impact report (breaking changes, new deprecations, changes
-         to existing functionality, new functionality) linking to each usage.
+      5. Evaluate the researched changes against those usages and prepare a
+         categorized Markdown impact report for the original issue comment.
       6. Perform the upgrade.
-      7. Open the main upgrade PR with the impact report.
+      7. Open the main upgrade PR without creating or committing report files.
       8. For each deprecation, open a PR replacing the deprecated usage, or —
          if that is not possible — open a GitHub issue describing the upgrade,
          impacted areas, and the deprecated functionality.
       9. For changes to existing functionality, assess behavioral impact on the
-         codebase and, if any, generate a report for human review.
+         codebase and, if any, prepare Markdown for the original issue comment.
       10. For new functionality, open a GitHub issue describing the upgrade, the
           new functionality, and where it could improve the codebase.
       11. Before finishing, update the original request issue with all generated
@@ -158,18 +157,20 @@ def build_upgrade_prompt(
         "the exact place(s) in the codebase it affects using permalinks of the "
         f"form {repo_url}/blob/<commit-sha>/<path>#L<line> (or `path:line` if a "
         "commit permalink is not available). If a category has no relevant "
-        "items, state \"None\" under that heading. Write the report to "
-        "`DEPENDENCY_UPGRADE_REPORT.md` at the repo root.",
+        "items, state \"None\" under that heading. Keep the complete report "
+        "Markdown in the session context for the final comment on the original "
+        "GitHub issue. Do NOT create, write, stage, or commit a report file, and "
+        "do not copy the report content into a pull request or another issue.",
         "",
         f"6. Perform the upgrade: bump `{dependency}` to `{target}` in the "
         "appropriate manifest(s) and lockfile(s), then apply the code changes "
         "required by the breaking changes and deprecations you identified so "
         "the project builds and its tests pass.",
         "",
-        "7. Open a pull request with the upgrade. Include the full impact report "
-        "(the four categories with codebase links) in the PR description, along "
-        "with the current version, the target version, and the migration steps "
-        "you applied.",
+        "7. Open a pull request with the upgrade. Include the current version, "
+        "target version, migration steps, and validation performed, and link the "
+        "original request issue. Do NOT include the impact report content in the "
+        "PR description and do not add any report file to the PR.",
         "",
         "8. Handle the deprecations from the \"New deprecations\" category. For "
         "each deprecated piece of functionality the codebase uses:",
@@ -192,12 +193,14 @@ def build_upgrade_prompt(
         "actually affect the behavior of THIS codebase given how it uses the "
         "affected functionality (consider the arguments passed, the return "
         "values relied on, and the surrounding logic at each usage site). If "
-        "any change would impact the codebase's behavior, generate a "
-        "`BEHAVIORAL_IMPACT_REPORT.md` for HUMAN REVIEW that, for each impacted "
+        "any change would impact the codebase's behavior, prepare a Behavioral "
+        "Impact Report in Markdown for HUMAN REVIEW that, for each impacted "
         "usage, describes the behavioral change, links to the affected code "
         f"({repo_url}/blob/<commit-sha>/<path>#L<line>), and explains the likely "
-        "effect on the codebase. If no change has any behavioral impact, state "
-        "that explicitly instead of creating the report.",
+        "effect on the codebase. Keep this report only in the session context "
+        "for the final original-issue comment; do not create or commit a report "
+        "file. If no change has any behavioral impact, record `None` for this "
+        "report in the completion comment.",
         "",
         "10. Handle the \"New functionality that can be used in the codebase\" "
         f"category. If there is new functionality in `{dependency}` that could "
@@ -217,11 +220,15 @@ def build_upgrade_prompt(
             "finishing the Devin session, add a completion comment to the "
             f"original GitHub issue {ref}. The comment MUST:",
             "",
-            "   - Attach every generated report, including "
-            "`DEPENDENCY_UPGRADE_REPORT.md`, `BEHAVIORAL_IMPACT_REPORT.md` when "
-            "created, and any other report. Include each report's complete "
-            "Markdown content in a collapsible `<details>` section and link to "
-            "the committed report file or pull request when available.",
+            "   - Include every generated report directly in this comment, "
+            "including the Dependency Upgrade Report, the Behavioral Impact "
+            "Report when applicable, and any other report. Put each report's "
+            "complete Markdown content in its own collapsible `<details>` "
+            "section.",
+            "   - This completion comment MUST be the only location containing "
+            "the report content. Do not create, write, stage, commit, attach, or "
+            "link to report files, and do not copy reports into pull request "
+            "descriptions or other GitHub issues.",
             "   - List and link every pull request created during the session, "
             "including the main upgrade PR and any deprecation PRs.",
             "   - List and link every GitHub issue created during the session, "
