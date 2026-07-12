@@ -1,4 +1,26 @@
-from prompt import IMPACT_CATEGORIES, build_upgrade_prompt
+from prompt import (
+    IMPACT_CATEGORIES,
+    build_session_started_message,
+    build_upgrade_prompt,
+)
+
+
+def test_session_started_message_requires_devin_to_comment_with_session_id():
+    message = build_session_started_message(
+        issue_url="https://github.com/your-org/your-repo/issues/42",
+        session_id="devin-123",
+        session_url="https://app.devin.ai/sessions/123",
+        dependency="requests",
+        target_version="2.32.0",
+    )
+
+    assert "FIRST task" in message
+    assert "picked up and sent to Devin" in message
+    assert "Devin session ID: `devin-123`" in message
+    assert "https://github.com/your-org/your-repo/issues/42" in message
+    assert "<!-- devin-dependency-upgrade-session:devin-123 -->" in message
+    assert "<!-- devin-dependency-upgrade-complete:devin-123 -->" in message
+    assert "webhook service does not have or use GitHub API credentials" in message
 
 
 def test_prompt_includes_key_steps():
@@ -77,6 +99,28 @@ def test_prompt_assesses_behavioral_impact_for_existing_functionality_changes():
     assert "behavior" in prompt.lower()
     assert "BEHAVIORAL_IMPACT_REPORT.md" in prompt
     assert "human review" in prompt.lower()
+
+
+def test_prompt_updates_original_issue_when_session_completes():
+    issue_url = "https://github.com/your-org/your-repo/issues/42"
+    prompt = build_upgrade_prompt(
+        repo_url="https://github.com/your-org/your-repo",
+        dependency="requests",
+        target_version="2.32.0",
+        issue_number=42,
+        issue_url=issue_url,
+    )
+
+    completion_step = prompt[prompt.index("10. After ALL upgrade work is complete"):]
+    assert issue_url in completion_step
+    assert "DEPENDENCY_UPGRADE_REPORT.md" in completion_step
+    assert "BEHAVIORAL_IMPACT_REPORT.md" in completion_step
+    assert "complete Markdown content" in completion_step
+    assert "every pull request" in completion_step
+    assert "every GitHub issue" in completion_step
+    assert "Do not finish the session" in completion_step
+    assert "Perform this GitHub interaction yourself" in completion_step
+    assert "webhook service does not have or use GitHub API credentials" in completion_step
 
 
 def test_prompt_opens_issue_for_usable_new_functionality():

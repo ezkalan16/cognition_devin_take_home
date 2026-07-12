@@ -24,7 +24,7 @@ from fastapi import FastAPI, Header, HTTPException, Request
 import config
 from dependency_parser import parse_dependency
 from devin_client import DevinClient
-from prompt import build_upgrade_prompt
+from prompt import build_session_started_message, build_upgrade_prompt
 
 _log_level = logging.getLevelNamesMapping().get(config.LOG_LEVEL, logging.INFO)
 logging.basicConfig(level=_log_level)
@@ -142,13 +142,18 @@ async def github_webhook(
             status_code=422,
             detail="Could not determine the dependency name from the issue.",
         )
+    if not isinstance(issue_number, int):
+        raise HTTPException(status_code=422, detail="GitHub issue number is missing")
 
+    issue_url = issue.get("html_url") or (
+        f"{config.TARGET_REPO_URL.rstrip('/')}/issues/{issue_number}"
+    )
     prompt = build_upgrade_prompt(
         repo_url=config.TARGET_REPO_URL,
         dependency=parsed.name,
         target_version=parsed.version or "",
         issue_number=issue_number,
-        issue_url=issue.get("html_url"),
+        issue_url=issue_url,
         issue_title=title,
         issue_body=body,
     )
@@ -168,8 +173,9 @@ async def github_webhook(
         parsed.name,
         parsed.version or "latest",
     )
+    devin_client = _get_client()
     try:
-        session = _get_client().create_session(
+        session = devin_client.create_session(
             prompt,
             title=session_title,
             idempotent=True,
@@ -192,10 +198,51 @@ async def github_webhook(
         parsed.version,
         session.url,
     )
+
+    started_message = build_session_started_message(
+        issue_url=issue_url,
+        session_id=session.session_id,
+        session_url=session.url,
+        dependency=parsed.name,
+        target_version=parsed.version,
+    )
+    try:
+        devin_client.send_message(session.session_id, started_message)
+    except httpx.HTTPStatusError as exc:
+        logger.error(
+            "Failed to send GitHub pickup instructions to Devin status=%s "
+            "issue_number=%s session_id=%s",
+            exc.response.status_code,
+            issue_number,
+            session.session_id,
+        )
+        raise HTTPException(
+            status_code=502,
+            detail="Devin session created but issue-update instructions failed",
+        ) from exc
+    except httpx.RequestError as exc:
+        logger.error(
+            "Failed to send GitHub pickup instructions to Devin "
+            "issue_number=%s session_id=%s",
+            issue_number,
+            session.session_id,
+        )
+        raise HTTPException(
+            status_code=502,
+            detail="Devin session created but issue-update instructions failed",
+        ) from exc
+
+    logger.info(
+        "Sent GitHub pickup instructions to Devin issue_number=%s session_id=%s",
+        issue_number,
+        session.session_id,
+    )
+
     return {
         "status": "session_created",
         "dependency": parsed.name,
         "target_version": parsed.version,
         "session_id": session.session_id,
         "session_url": session.url,
+        "issue_update_requested": True,
     }
